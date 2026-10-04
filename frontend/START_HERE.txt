@@ -1,0 +1,11 @@
+CREATOR CENTER — START HERE
+
+1) Unzip this folder.
+2) Run start.sh (macOS/Linux) or start.bat (Windows).
+3) Open http://localhost:8080 in Chrome, Edge, Firefox, or Safari.
+
+No npm install is required.
+
+For most features you can also double-click index.html, but microphone recording and app installation normally require localhost/HTTPS.
+
+See README.md for features and production limitations.

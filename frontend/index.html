@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0718" />
+  <meta name="description" content="Creator Center — local-first creator software workspace." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Creator Center</title>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-row">
+        <div class="brand-mark" aria-hidden="true">✦</div>
+        <div>
+          <div class="brand-title">Creator Center</div>
+          <div class="brand-subtitle">build • tune • publish</div>
+        </div>
+      </div>
+
+      <nav class="nav-stack" id="navStack">
+        <button class="nav-item active" data-route="dashboard"><span>⌂</span><b>Dashboard</b></button>
+        <button class="nav-item" data-route="projects"><span>▣</span><b>Projects</b></button>
+        <button class="nav-item" data-route="studio"><span>✎</span><b>Creator Studio</b></button>
+        <button class="nav-item" data-route="media"><span>◫</span><b>Media Library</b></button>
+        <button class="nav-item" data-route="templates"><span>▦</span><b>Templates</b></button>
+        <button class="nav-item" data-route="ideas"><span>✧</span><b>Idea Lab</b></button>
+        <button class="nav-item" data-route="wireframes"><span>⌘</span><b>Wireframes</b></button>
+        <button class="nav-item" data-route="prototype"><span>↝</span><b>Prototype</b></button>
+        <button class="nav-item" data-route="voice"><span>◉</span><b>Voice Lab</b></button>
+        <button class="nav-item" data-route="analytics"><span>▥</span><b>Analytics</b></button>
+        <button class="nav-item" data-route="settings"><span>⚙</span><b>Settings</b></button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="storage-meter"><span id="storageText">Local-first workspace</span><div><i id="storageBar"></i></div></div>
+        <button class="ghost-button" id="installButton" hidden>Install app</button>
+      </div>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="pageEyebrow">CREATOR SOFTWARE CENTER</div>
+          <h1 id="pageTitle">Good afternoon, Creator</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="quickSearchButton" title="Search">⌕</button>
+          <button class="primary-button" id="newProjectButton">＋ New project</button>
+          <div class="avatar" title="Local workspace">CC</div>
+        </div>
+      </header>
+
+      <section class="content" id="viewRoot" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <div class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
+    <button data-route="dashboard" class="active"><span>⌂</span><small>Home</small></button>
+    <button data-route="projects"><span>▣</span><small>Projects</small></button>
+    <button data-route="studio" class="mobile-plus"><span>＋</span><small>Create</small></button>
+    <button data-route="media"><span>◫</span><small>Media</small></button>
+    <button data-route="settings"><span>⚙</span><small>More</small></button>
+  </div>
+
+  <dialog id="modal" class="modal">
+    <form method="dialog" id="modalForm">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow" id="modalEyebrow">CREATE</div>
+          <h2 id="modalTitle">New project</h2>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Close">×</button>
+      </div>
+      <div id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <template id="projectCardTemplate">
+    <article class="project-card glass-card">
+      <div class="project-thumb"></div>
+      <div class="project-card-body">
+        <div class="project-card-top">
+          <span class="status-pill"></span>
+          <button class="icon-button project-menu" title="Project actions">⋯</button>
+        </div>
+        <h3></h3>
+        <p class="project-meta"></p>
+        <div class="progress"><i></i></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="config.js"></script>
+  <script src="voice-clone.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

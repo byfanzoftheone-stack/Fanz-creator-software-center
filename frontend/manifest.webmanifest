@@ -1,0 +1,13 @@
+{
+  "name": "Creator Center",
+  "short_name": "CreatorCenter",
+  "description": "Local-first creator software center for projects, media, wireframes, prototypes, voice recording, and scheduling.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090613",
+  "theme_color": "#0a0718",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
