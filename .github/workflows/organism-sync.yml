@@ -1,0 +1,30 @@
+name: organism-sync
+on:
+  push:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Required files present
+        run: |
+          for f in README.md AGENTS.md REPO-DNA.md; do
+            [ -f "$f" ] || { echo "::warning::missing $f"; }
+          done
+      - name: REPO-DNA not stale
+        run: |
+          if grep -q "\[?\]" REPO-DNA.md 2>/dev/null; then echo "::notice::REPO-DNA.md still has [?] fields"; fi
+      - uses: actions/setup-node@v4
+        if: hashFiles('package.json') != ''
+        with:
+          node-version: 20
+      - name: Build (only if package.json exists)
+        if: hashFiles('package.json') != ''
+        run: |
+          npm ci || npm install
+          npm run build --if-present
