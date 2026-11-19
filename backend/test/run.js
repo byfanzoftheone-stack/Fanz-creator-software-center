@@ -116,6 +116,21 @@ async function j(method, p, { token, body, form } = {}) {
     let blocked = false; try { await db.query('DELETE FROM audit'); } catch { blocked = true; }
     ok(blocked, 'VC-8: database refuses deleting audit entries'); await db.end();
 
+    r = await j('GET', '/api/plans');
+    ok(r.status === 200 && r.body.plans.length === 3 && r.body.checkout_live === false && !JSON.stringify(r.body).includes('STRIPE'), 'plans are public; checkout not live by default');
+    r = await j('POST', '/api/waitlist', { body: { email: 'not-an-email' } });
+    ok(r.status === 400, 'waitlist rejects bad email');
+    r = await j('POST', '/api/waitlist', { body: { email: 'Fan@Example.com', plan: 'studio' } });
+    ok(r.status === 201, 'waitlist accepts email');
+    r = await j('GET', '/api/waitlist');
+    ok(r.status === 401, 'waitlist list is owner-only');
+    r = await j('GET', '/api/waitlist', { token });
+    ok(r.status === 200 && r.body.entries[0].email === 'fan@example.com', 'owner can read waitlist');
+    r = await j('POST', '/api/checkout', { body: { plan: 'creator' } });
+    ok(r.status === 200 && r.body.mode === 'stub', 'checkout is a stub until CHECKOUT_ENABLED + Stripe env set');
+    r = await j('POST', '/api/checkout', { body: { plan: 'free' } });
+    ok(r.status === 400, 'checkout refuses free/unknown plan');
+
     const cr = await fetch(API + '/health', { headers: { origin: 'https://evil.example' } });
     ok(!cr.headers.get('access-control-allow-origin'), 'CORS: unknown website gets no access');
     const cg = await fetch(API + '/health', { headers: { origin: 'https://creator.example' } });
