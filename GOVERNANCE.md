@@ -9,6 +9,7 @@ Principle: deny > require_approval > allow. A human decides anything that spends
 | Append-only audit log (DB trigger blocks UPDATE/DELETE) | `db.js`, VC-8 | Enforced, tested |
 | Spend control: per-plan monthly speech quota | `billing.js`, rule BL-1 | Enforced |
 | Payments off by default: needs `CHECKOUT_ENABLED=true` + Stripe env | `billing.js` | Enforced |
+| License keys: webhook signature-verified, fail closed (503/deny) without a store; keys stored as hashes; delivery is manual with a named approver (`backend/scripts/licenses.js`) | `license.js`, `license/` | Enforced, tested |
 | Outbound messages: none sent. Waitlist stores emails; owner contacts manually | `server.js` | By design |
 | Publishing/posting: not automated; `LAUNCH.md` is copy for manual posting | - | By design |
 | No secrets in code: env only; `.env*` gitignored (examples allowed) | `.gitignore`, `.env.example` | Enforced |

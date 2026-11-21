@@ -30,7 +30,12 @@ Waitlist capture (`POST /api/waitlist`), pricing API, checkout stub that calls S
 - [ ] Set Railway vars (see `backend/.env.example`); real keys only in the dashboard.
 - [ ] Confirm ElevenLabs plan permits commercial use and instant cloning; compute cost per 1k chars.
 - [ ] Create Stripe products/prices; put price IDs in env; test with `sk_test_` keys first.
-- [ ] Add a Stripe webhook (with signature verification) to flip a customer's plan. Not built yet: today `OWNER_PLAN` is a single-owner flag.
+- [x] Stripe webhook built: `POST /api/stripe/webhook` (raw body, HMAC signature verified, idempotent, transactional) issues a license key `FZ-<PLAN>-...` on a paid checkout. Tier comes only from the server-side price map (`STRIPE_PRICE_CREATOR`/`STUDIO`); the checkout stub sets `metadata.price_id`. Unknown prices issue nothing. Not tested against live Stripe.
+- [ ] Set `STRIPE_WEBHOOK_SECRET` and `LICENSE_DATABASE_URL` (same Postgres as `DATABASE_URL`); point the Stripe endpoint at `/api/stripe/webhook` (events: `checkout.session.completed`, `customer.subscription.deleted`, `invoice.payment_failed`, `charge.refunded`).
+- [ ] Deliver keys by hand (nothing is emailed): `node backend/scripts/licenses.js pending --show-keys`, send the key yourself, then `deliver <hash> --approver "Name"` (drops the plaintext). `migrate-json <file>` imports a legacy JSON DB.
+
+**Using a key:** send `X-License-Key` on `speak`; a valid key resolves that plan and BL-1 applies by it. No/invalid key falls back to `OWNER_PLAN`. If the license store is not configured the webhook answers 503 and keys are denied (fail closed).
+Limits: the monthly quota counter is still global (single-owner), not per key; the plaintext key sits in `license_outbox` until delivered, so protect the database; the license tables live beside the app tables.
 - [ ] Multi-user accounts (plan is single-owner today). Required before selling to more than one customer.
 - [ ] Terms of service, privacy policy, refund policy; consent/misuse clause.
 - [ ] Wire a waitlist form and pricing section into `frontend/` (API is ready).

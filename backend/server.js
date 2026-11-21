@@ -6,6 +6,7 @@ const { pool, init, audit } = require('./db');
 const el = require('./elevenlabs');
 const policy = require('./policy');
 const billing = require('./billing');
+const license = require('./license');
 
 const PORT = process.env.PORT || 3000;
 const SESSION_HOURS = 12;
@@ -23,9 +24,11 @@ app.use(cors({
     if (!origins.length) return cb(null, /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
     cb(null, origins.includes(origin));
   },
-  allowedHeaders: ['content-type', 'authorization'],
+  allowedHeaders: ['content-type', 'authorization', 'x-license-key'],
   exposedHeaders: ['x-audit-id'],
 }));
+// Stripe webhook: RAW body on this route only, registered BEFORE the json parser (signature is over the raw bytes).
+app.post('/api/stripe/webhook', express.raw({ type: '*/*', limit: '256kb' }), license.webhookHandler());
 app.use(express.json({ limit: '32kb' }));
 app.use((req, res, next) => { res.set('x-content-type-options', 'nosniff'); res.set('cache-control', 'no-store'); next(); });
 
@@ -240,7 +243,7 @@ app.post('/api/voices/:id/speak', requireOwner, wrap(async (req, res) => {
     await audit('voice.speak', { target: req.params.id, decision: 'deny', rule: d.rule });
     return refuse(res, d);
   }
-  const plan = billing.currentPlan();
+  const plan = await billing.resolvePlan(req);   // X-License-Key tier, else OWNER_PLAN; BL-1 applies by resolved plan
   const used = (await pool.query("SELECT COALESCE(SUM((detail->>'chars')::int),0)::int AS n FROM audit WHERE action='voice.speak' AND decision='allow' AND at >= date_trunc('month', now())")).rows[0].n;
   if (used + text.trim().length > plan.monthly_chars) {
     await audit('voice.speak', { target: v.id, decision: 'deny', rule: 'BL-1', detail: { plan: plan.id } });

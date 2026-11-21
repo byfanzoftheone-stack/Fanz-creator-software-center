@@ -131,6 +131,11 @@ async function j(method, p, { token, body, form } = {}) {
     r = await j('POST', '/api/checkout', { body: { plan: 'free' } });
     ok(r.status === 400, 'checkout refuses free/unknown plan');
 
+    r = await j('POST', '/api/stripe/webhook', { body: { id: 'evt_x', type: 'checkout.session.completed' } });
+    ok(r.status === 503, 'Stripe webhook fails closed (503) when no license store is configured', JSON.stringify(r.body));
+    const kr = await fetch(API + `/api/voices/${voiceId}/speak`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'x-license-key': 'FZ-STUDIO-forged' }, body: JSON.stringify({ text: 'hi' }) });
+    ok(kr.status === 403, 'forged X-License-Key does not bypass the consent/voice policy (still VC-5, no 5xx)', String(kr.status));
+
     const cr = await fetch(API + '/health', { headers: { origin: 'https://evil.example' } });
     ok(!cr.headers.get('access-control-allow-origin'), 'CORS: unknown website gets no access');
     const cg = await fetch(API + '/health', { headers: { origin: 'https://creator.example' } });
