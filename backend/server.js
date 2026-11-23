@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const { pool, init, audit } = require('./db');
 const el = require('./elevenlabs');
 const policy = require('./policy');
+const billing = require('./billing');
+const license = require('./license');
 
 const PORT = process.env.PORT || 3000;
 const SESSION_HOURS = 12;
@@ -22,9 +24,11 @@ app.use(cors({
     if (!origins.length) return cb(null, /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
     cb(null, origins.includes(origin));
   },
-  allowedHeaders: ['content-type', 'authorization'],
+  allowedHeaders: ['content-type', 'authorization', 'x-license-key'],
   exposedHeaders: ['x-audit-id'],
 }));
+// Stripe webhook: RAW body on this route only, registered BEFORE the json parser (signature is over the raw bytes).
+app.post('/api/stripe/webhook', express.raw({ type: '*/*', limit: '256kb' }), license.webhookHandler());
 app.use(express.json({ limit: '32kb' }));
 app.use((req, res, next) => { res.set('x-content-type-options', 'nosniff'); res.set('cache-control', 'no-store'); next(); });
 
@@ -38,6 +42,32 @@ const refuse = (res, d, status = 403) => res.status(status).json({ decision: d.d
 app.get('/health', wrap(async (req, res) => {
   await pool.query('SELECT 1');
   res.json({ ok: true, service: 'creator-center-voice', elevenlabs_configured: el.configured(), owner_passcode_set: Boolean(process.env.OWNER_PASSCODE) });
+}));
+
+// ---- plans, waitlist, checkout (public, rate-limited, never sends email) ------
+const publicLimit = billing.limiter(10, 60 * 60 * 1000);
+app.get('/api/plans', (req, res) => res.json({ plans: billing.publicPlans(), checkout_live: process.env.CHECKOUT_ENABLED === 'true' && Boolean(process.env.STRIPE_SECRET_KEY) }));
+
+app.post('/api/waitlist', publicLimit, wrap(async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const plan = billing.PLANS[req.body?.plan] ? req.body.plan : 'creator';
+  if (!billing.isEmail(email)) return res.status(400).json({ reason: 'Enter a valid email address.' });
+  await pool.query('INSERT INTO waitlist (email, plan) VALUES ($1,$2) ON CONFLICT (email) DO UPDATE SET plan=$2', [email, plan]);
+  await audit('waitlist.join', { decision: 'allow', detail: { email_sha256: sha256(email).slice(0, 16), plan } });
+  res.status(201).json({ ok: true, message: 'You are on the list. No email is sent automatically; the owner reviews and contacts people.' });
+}));
+
+app.post('/api/checkout', publicLimit, wrap(async (req, res) => {
+  const base = origins[0] || 'http://localhost:3000';
+  const out = await billing.createCheckout(String(req.body?.plan || ''), { successUrl: `${base}/?paid=1`, cancelUrl: `${base}/?paid=0` });
+  if (out.error) return res.status(400).json({ reason: out.error });
+  await audit('checkout.start', { decision: out.mode, detail: { plan: req.body.plan } });
+  res.json(out);
+}));
+
+app.get('/api/waitlist', (req, res, next) => requireOwner(req, res, next), wrap(async (req, res) => {
+  const r = await pool.query('SELECT email, plan, created_at FROM waitlist ORDER BY created_at DESC LIMIT 500');
+  res.json({ entries: r.rows });
 }));
 
 // ---- owner login (single owner, passcode in Railway variables) -------------
@@ -79,7 +109,7 @@ app.post('/api/logout', requireOwner, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.get('/api/status', requireOwner, (req, res) => res.json({ elevenlabs_configured: el.configured(), max_speak_chars: policy.MAX_SPEAK_CHARS }));
+app.get('/api/status', requireOwner, (req, res) => res.json({ elevenlabs_configured: el.configured(), max_speak_chars: policy.MAX_SPEAK_CHARS, plan: billing.currentPlan() }));
 
 // ---- consent ----------------------------------------------------------------
 app.post('/api/consents', requireOwner, wrap(async (req, res) => {
@@ -212,6 +242,12 @@ app.post('/api/voices/:id/speak', requireOwner, wrap(async (req, res) => {
   if (d.decision === 'deny') {
     await audit('voice.speak', { target: req.params.id, decision: 'deny', rule: d.rule });
     return refuse(res, d);
+  }
+  const plan = await billing.resolvePlan(req);   // X-License-Key tier, else OWNER_PLAN; BL-1 applies by resolved plan
+  const used = (await pool.query("SELECT COALESCE(SUM((detail->>'chars')::int),0)::int AS n FROM audit WHERE action='voice.speak' AND decision='allow' AND at >= date_trunc('month', now())")).rows[0].n;
+  if (used + text.trim().length > plan.monthly_chars) {
+    await audit('voice.speak', { target: v.id, decision: 'deny', rule: 'BL-1', detail: { plan: plan.id } });
+    return res.status(402).json({ decision: 'deny', rule: 'BL-1', reason: `Monthly limit for the ${plan.name} plan (${plan.monthly_chars} characters) reached. Upgrade the plan.` });
   }
   const audio = await el.speak(v.el_voice_id, text.trim());
   await audit('voice.speak', { target: v.id, decision: 'allow', rule: d.rule, detail: { chars: text.trim().length, text_sha256: sha256(text.trim()) } });

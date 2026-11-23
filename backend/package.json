@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/run.js"
+    "test": "node --test test/license.test.js && node test/run.js"
   },
   "engines": {
     "node": ">=20"
